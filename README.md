@@ -2,22 +2,26 @@
 
 ![](screenshot.png)
 
-A rudimentary recreation of the [RetroTINK-4K](https://www.retrotink.com/product-page/retrotink-4k) remote control that issues commands over USB serial, written in wxPython.
+A desktop recreation of the [RetroTINK-4K](https://www.retrotink.com/product-page/retrotink-4k) remote control that issues commands over USB serial, written in wxPython.
 
-## Instructions
+## Requirements
 
-[RetroTINK-4K firmware 1.6.6 or newer](https://retrotink-llc.github.io/firmware/) is required, which adds support for [serial commands over USB](https://consolemods.org/wiki/AV:RetroTINK-4K#USB_Serial_Configuration).
-
-Requires [wxPython](https://wxpython.org) and [PySerial](https://pyserial.readthedocs.io/en/latest/pyserial.html).
+- [RetroTINK-4K firmware 1.6.6 or newer](https://retrotink-llc.github.io/firmware/), which adds [USB serial command support](https://consolemods.org/wiki/AV:RetroTINK-4K#USB_Serial_Configuration)
+- Python 3.10+
+- [wxPython](https://wxpython.org) and [PySerial](https://pyserial.readthedocs.io/en/latest/pyserial.html)
 
 ```shell
-pip install wxPython
-pip install pyserial
+pip install wxPython pyserial
 ```
 
-Connect the power of the RetroTINK-4K to your PC and enter its serial port in the Port field. The text in the Port field is saved to **config.json**.
+## Usage
 
+Connect the RetroTINK-4K to your PC via USB, then enter its serial port in the **Port** field and click any button. The port value is persisted to `config.json` alongside the script.
 
-## Known Issues
+Buttons cover power, input selection, profile recall, navigation, resolution presets, and AUX slots. A **Custom Command...** button lets you send arbitrary serial commands. **Always On Top** keeps the window above other applications.
 
-The SAFE button does not work as expected, as the firmware does not activate its function unless it is held down for at least 2 seconds on the real remote.
+### Hold-to-repeat
+
+Buttons behave like keyboard autorepeat: a single click sends one command. Holding a button sends once immediately, pauses for `_HOLD_INITIAL_DELAY` (default 0.4 s), then repeats at `_HOLD_REPEAT_INTERVAL` (default 0.1 s) until released. Both constants are defined at the top of `remote.pyw` and can be adjusted to taste.
+
+Serial I/O runs on a background thread so the UI stays responsive during holds.
