@@ -22,6 +22,8 @@ Buttons cover power, input selection, profile recall, navigation, resolution pre
 
 ### Hold-to-repeat
 
-Buttons behave like keyboard autorepeat: a single click sends one command. Holding a button sends once immediately, pauses for `_HOLD_INITIAL_DELAY` (default 0.4 s), then repeats at `_HOLD_REPEAT_INTERVAL` (default 0.1 s) until released. Both constants are defined at the top of `remote.pyw` and can be adjusted to taste.
+Buttons behave like keyboard autorepeat: a single click sends one command. Holding a button sends once immediately, pauses for the **Init** delay (default 0.4 s), then repeats at the **Rpt** interval (default 0.1 s) until released.
+
+Both values are adjustable via the spinners in the top-right corner of the window and are saved to `config.json` on exit.
 
 Serial I/O runs on a background thread so the UI stays responsive during holds.
