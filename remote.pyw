@@ -12,11 +12,15 @@ _CONFIG_PATH = Path(__file__).parent / "config.json"
 class ConfigManager:
     """Loads, validates, and persists user settings."""
 
+    # Hardcoded safe minimums — used as fallbacks when config.json is absent or corrupt.
     _DEFAULTS: dict = {
         "port": "",
         "always_on_top": False,
         "hold_initial_delay": 0.4,
         "hold_repeat_interval": 0.1,
+        "button_height": 23,
+        "min_window_width": 200,
+        "min_window_height": 400,
     }
 
     def __init__(self, path: Path = _CONFIG_PATH):
@@ -47,7 +51,7 @@ class ConfigManager:
 
     @property
     def always_on_top(self) -> bool:
-        return bool(self._data.get("always_on_top", False))
+        return bool(self._data.get("always_on_top", self._DEFAULTS["always_on_top"]))
 
     @always_on_top.setter
     def always_on_top(self, value: bool):
@@ -55,7 +59,7 @@ class ConfigManager:
 
     @property
     def hold_initial_delay(self) -> float:
-        return float(self._data.get("hold_initial_delay", 0.4))
+        return float(self._data.get("hold_initial_delay", self._DEFAULTS["hold_initial_delay"]))
 
     @hold_initial_delay.setter
     def hold_initial_delay(self, value: float):
@@ -63,11 +67,23 @@ class ConfigManager:
 
     @property
     def hold_repeat_interval(self) -> float:
-        return float(self._data.get("hold_repeat_interval", 0.1))
+        return float(self._data.get("hold_repeat_interval", self._DEFAULTS["hold_repeat_interval"]))
 
     @hold_repeat_interval.setter
     def hold_repeat_interval(self, value: float):
         self._data["hold_repeat_interval"] = value
+
+    @property
+    def button_height(self) -> int:
+        return max(int(self._data.get("button_height", self._DEFAULTS["button_height"])), 16)
+
+    @property
+    def min_window_width(self) -> int:
+        return max(int(self._data.get("min_window_width", self._DEFAULTS["min_window_width"])), 200)
+
+    @property
+    def min_window_height(self) -> int:
+        return max(int(self._data.get("min_window_height", self._DEFAULTS["min_window_height"])), 400)
 
 
 class SerialController:
@@ -192,12 +208,13 @@ class Frame(wx.Frame):
             parent=None,
             title=title,
             style=self._BASE_STYLE,
-            size=wx.Size(268, 680),
         )
         self._config = ConfigManager()
 
         self.CreateStatusBar()
         self._build_ui()
+        self.Fit()
+        self.SetMinSize(wx.Size(self._config.min_window_width, self._config.min_window_height))
 
         # Instantiated after _build_ui so self._com_port exists for port_getter.
         self._serial = SerialController(
@@ -256,80 +273,83 @@ class Frame(wx.Frame):
         top_sizer.Add(com_port_sizer, 1, wx.EXPAND)
         top_sizer.Add(spin_sizer, 0, wx.ALIGN_CENTRE_VERTICAL | wx.LEFT, 10)
 
-        # Button spec format: (name, label, command, size, row, col).
-        # Sizer assignment is handled by the (specs, sizer) loop below,
+        # Button spec format: (name, label, command, row, col).
+        # Widths are dynamic — see AddGrowableCol calls below.
+        # Sizer assignment is handled by the (specs, sizer, ncols) loop,
         # keeping layout concerns out of the data tables.
         power_specs = [
-            ("pwr_on",  "PWR ON",  "pwr on",     wx.Size(120, 23), 0, 0),
-            ("pwr_off", "PWR OFF", "remote pwr",  wx.Size(120, 23), 0, 1),
+            ("pwr_on",  "PWR ON",  "pwr on",     0, 0),
+            ("pwr_off", "PWR OFF", "remote pwr",  0, 1),
         ]
         input_profile_specs = [
-            ("input",  "INPUT",  "remote input",   wx.Size(79, 23), 0, 0),
-            ("out",    "OUT",    "remote out",      wx.Size(80, 23), 0, 1),
-            ("scl",    "SCL",    "remote scl",      wx.Size(79, 23), 0, 2),
-            ("sfx",    "SFX",    "remote sfx",      wx.Size(79, 23), 1, 0),
-            ("adc",    "ADC",    "remote adc",      wx.Size(80, 23), 1, 1),
-            ("prof",   "PROF",   "remote prof",     wx.Size(79, 23), 1, 2),
-            ("num1",   "1",      "remote prof1",    wx.Size(79, 23), 3, 0),
-            ("num2",   "2",      "remote prof2",    wx.Size(80, 23), 3, 1),
-            ("num3",   "3",      "remote prof3",    wx.Size(79, 23), 3, 2),
-            ("num4",   "4",      "remote prof4",    wx.Size(79, 23), 4, 0),
-            ("num5",   "5",      "remote prof5",    wx.Size(80, 23), 4, 1),
-            ("num6",   "6",      "remote prof6",    wx.Size(79, 23), 4, 2),
-            ("num7",   "7",      "remote prof7",    wx.Size(79, 23), 5, 0),
-            ("num8",   "8",      "remote prof8",    wx.Size(80, 23), 5, 1),
-            ("num9",   "9",      "remote prof9",    wx.Size(79, 23), 5, 2),
-            ("num10",  "10",     "remote prof10",   wx.Size(79, 23), 6, 0),
-            ("num11",  "11",     "remote prof11",   wx.Size(80, 23), 6, 1),
-            ("num12",  "12",     "remote prof12",   wx.Size(79, 23), 6, 2),
+            ("input",  "INPUT",  "remote input",   0, 0),
+            ("out",    "OUT",    "remote out",      0, 1),
+            ("scl",    "SCL",    "remote scl",      0, 2),
+            ("sfx",    "SFX",    "remote sfx",      1, 0),
+            ("adc",    "ADC",    "remote adc",      1, 1),
+            ("prof",   "PROF",   "remote prof",     1, 2),
+            ("num1",   "1",      "remote prof1",    3, 0),
+            ("num2",   "2",      "remote prof2",    3, 1),
+            ("num3",   "3",      "remote prof3",    3, 2),
+            ("num4",   "4",      "remote prof4",    4, 0),
+            ("num5",   "5",      "remote prof5",    4, 1),
+            ("num6",   "6",      "remote prof6",    4, 2),
+            ("num7",   "7",      "remote prof7",    5, 0),
+            ("num8",   "8",      "remote prof8",    5, 1),
+            ("num9",   "9",      "remote prof9",    5, 2),
+            ("num10",  "10",     "remote prof10",   6, 0),
+            ("num11",  "11",     "remote prof11",   6, 1),
+            ("num12",  "12",     "remote prof12",   6, 2),
         ]
         navigation_specs = [
-            ("menu",   "MENU",      "remote menu",    wx.Size(79, 23), 0, 0),
-            ("up",     "↑",         "remote up",      wx.Size(80, 23), 0, 1),
-            ("back",   "BACK",      "remote back",    wx.Size(79, 23), 0, 2),
-            ("left",   "←",         "remote left",    wx.Size(79, 23), 1, 0),
-            ("ok",     "ENTER",     "remote ok",      wx.Size(80, 23), 1, 1),
-            ("right",  "→",         "remote right",   wx.Size(79, 23), 1, 2),
-            ("diag",   "DIAG",      "remote diag",    wx.Size(79, 23), 2, 0),
-            ("down",   "↓",         "remote down",    wx.Size(79, 23), 2, 1),
-            ("stat",   "STAT",      "remote stat",    wx.Size(79, 23), 2, 2),
-            ("gain",   "A. GAIN",   "remote gain",    wx.Size(79, 23), 4, 0),
-            ("pause",  "PAUSE",     "remote pause",   wx.Size(80, 23), 4, 1),
-            ("gen",    "GENLOCK",   "remote genlock", wx.Size(79, 23), 4, 2),
-            ("phase",  "A. PHASE",  "remote phase",   wx.Size(79, 23), 5, 0),
-            ("safe",   "SAFE",      "remote safe",    wx.Size(80, 23), 5, 1),
-            ("buffer", "T. BUFFER", "remote buffer",  wx.Size(79, 23), 5, 2),
+            ("menu",   "MENU",      "remote menu",    0, 0),
+            ("up",     "↑",         "remote up",      0, 1),
+            ("back",   "BACK",      "remote back",    0, 2),
+            ("left",   "←",         "remote left",    1, 0),
+            ("ok",     "ENTER",     "remote ok",      1, 1),
+            ("right",  "→",         "remote right",   1, 2),
+            ("diag",   "DIAG",      "remote diag",    2, 0),
+            ("down",   "↓",         "remote down",    2, 1),
+            ("stat",   "STAT",      "remote stat",    2, 2),
+            ("gain",   "A. GAIN",   "remote gain",    4, 0),
+            ("pause",  "PAUSE",     "remote pause",   4, 1),
+            ("gen",    "GENLOCK",   "remote genlock", 4, 2),
+            ("phase",  "A. PHASE",  "remote phase",   5, 0),
+            ("safe",   "SAFE",      "remote safe",    5, 1),
+            ("buffer", "T. BUFFER", "remote buffer",  5, 2),
         ]
         resolution_aux_specs = [
-            ("res4k",    "4K",    "remote res4k",    wx.Size(59, 23), 0, 0),
-            ("res1080p", "1080p", "remote res1080p", wx.Size(59, 23), 0, 1),
-            ("res1440p", "1440p", "remote res1440p", wx.Size(59, 23), 0, 2),
-            ("res480p",  "480p",  "remote res480p",  wx.Size(59, 23), 0, 3),
-            ("res1",     "RES1",  "remote res1",     wx.Size(59, 23), 1, 0),
-            ("res2",     "RES2",  "remote res2",     wx.Size(59, 23), 1, 1),
-            ("res3",     "RES3",  "remote res3",     wx.Size(59, 23), 1, 2),
-            ("res4",     "RES4",  "remote res4",     wx.Size(59, 23), 1, 3),
-            ("aux1",     "AUX1",  "remote aux1",     wx.Size(59, 23), 3, 0),
-            ("aux2",     "AUX2",  "remote aux2",     wx.Size(59, 23), 3, 1),
-            ("aux3",     "AUX3",  "remote aux3",     wx.Size(59, 23), 3, 2),
-            ("aux4",     "AUX4",  "remote aux4",     wx.Size(59, 23), 3, 3),
-            ("aux5",     "AUX5",  "remote aux5",     wx.Size(59, 23), 4, 0),
-            ("aux6",     "AUX6",  "remote aux6",     wx.Size(59, 23), 4, 1),
-            ("aux7",     "AUX7",  "remote aux7",     wx.Size(59, 23), 4, 2),
-            ("aux8",     "AUX8",  "remote aux8",     wx.Size(59, 23), 4, 3),
+            ("res4k",    "4K",    "remote res4k",    0, 0),
+            ("res1080p", "1080p", "remote res1080p", 0, 1),
+            ("res1440p", "1440p", "remote res1440p", 0, 2),
+            ("res480p",  "480p",  "remote res480p",  0, 3),
+            ("res1",     "RES1",  "remote res1",     1, 0),
+            ("res2",     "RES2",  "remote res2",     1, 1),
+            ("res3",     "RES3",  "remote res3",     1, 2),
+            ("res4",     "RES4",  "remote res4",     1, 3),
+            ("aux1",     "AUX1",  "remote aux1",     3, 0),
+            ("aux2",     "AUX2",  "remote aux2",     3, 1),
+            ("aux3",     "AUX3",  "remote aux3",     3, 2),
+            ("aux4",     "AUX4",  "remote aux4",     3, 3),
+            ("aux5",     "AUX5",  "remote aux5",     4, 0),
+            ("aux6",     "AUX6",  "remote aux6",     4, 1),
+            ("aux7",     "AUX7",  "remote aux7",     4, 2),
+            ("aux8",     "AUX8",  "remote aux8",     4, 3),
         ]
 
         self._buttons: dict[str, wx.Button] = {}
-        for specs, sizer in (
-            (power_specs,           buttons_sizer_1),
-            (input_profile_specs,   buttons_sizer_2),
-            (navigation_specs,      buttons_sizer_3),
-            (resolution_aux_specs,  buttons_sizer_4),
+        for specs, sizer, ncols in (
+            (power_specs,           buttons_sizer_1, 2),
+            (input_profile_specs,   buttons_sizer_2, 3),
+            (navigation_specs,      buttons_sizer_3, 3),
+            (resolution_aux_specs,  buttons_sizer_4, 4),
         ):
-            for name, label, command, size, row, col in specs:
-                btn = self._make_command_button(main_panel, label, command, size)
+            for name, label, command, row, col in specs:
+                btn = self._make_command_button(main_panel, label, command)
                 self._buttons[name] = btn
-                sizer.Add(btn, wx.GBPosition(row, col))
+                sizer.Add(btn, wx.GBPosition(row, col), flag=wx.EXPAND)
+            for col in range(ncols):
+                sizer.AddGrowableCol(col)
 
         buttons_sizer_2.SetEmptyCellSize(wx.Size(1, 5))
         buttons_sizer_3.SetEmptyCellSize(wx.Size(1, 8))
@@ -347,15 +367,15 @@ class Frame(wx.Frame):
         buttons_sizer_5.Add(self._always_on_top, 0, wx.TOP, border=10)
 
         panel_sizer.Add(top_sizer, 0, wx.ALL | wx.EXPAND, border=5)
-        panel_sizer.Add(buttons_sizer_1, 0, wx.ALL, border=5)
+        panel_sizer.Add(buttons_sizer_1, 0, wx.ALL | wx.EXPAND, border=5)
         panel_sizer.AddSpacer(10)
-        panel_sizer.Add(buttons_sizer_2, 0, wx.ALL, border=5)
+        panel_sizer.Add(buttons_sizer_2, 0, wx.ALL | wx.EXPAND, border=5)
         panel_sizer.AddSpacer(10)
-        panel_sizer.Add(buttons_sizer_3, 0, wx.ALL, border=5)
+        panel_sizer.Add(buttons_sizer_3, 0, wx.ALL | wx.EXPAND, border=5)
         panel_sizer.AddSpacer(10)
-        panel_sizer.Add(buttons_sizer_4, 0, wx.ALL, border=5)
+        panel_sizer.Add(buttons_sizer_4, 0, wx.ALL | wx.EXPAND, border=5)
         panel_sizer.AddSpacer(10)
-        panel_sizer.Add(buttons_sizer_5, 0, wx.ALL, border=5)
+        panel_sizer.Add(buttons_sizer_5, 0, wx.ALL | wx.EXPAND, border=5)
 
         main_panel.SetSizer(panel_sizer)
 
@@ -369,9 +389,9 @@ class Frame(wx.Frame):
             self._always_on_top.SetValue(True)
             self._apply_always_on_top(True)
 
-    def _make_command_button(self, parent, label: str, command: str, size: wx.Size) -> wx.Button:
+    def _make_command_button(self, parent, label: str, command: str) -> wx.Button:
         """Create a button that sends continuously while held and stops on release."""
-        btn = wx.Button(parent, label=label, size=size)
+        btn = wx.Button(parent, label=label, size=wx.Size(-1, self._config.button_height))
         btn.Bind(wx.EVT_LEFT_DOWN, lambda _event, cmd=command: self._serial.press(cmd))
         btn.Bind(wx.EVT_LEFT_UP,   lambda _event: self._serial.release())
         return btn

@@ -27,3 +27,28 @@ Buttons behave like keyboard autorepeat: a single click sends one command. Holdi
 Both values are adjustable via the spinners in the top-right corner of the window and are saved to `config.json` on exit.
 
 Serial I/O runs on a background thread so the UI stays responsive during holds.
+
+## Configuration
+
+Settings are stored in `config.json` next to the script and managed by `ConfigManager`. The file is created automatically on first exit. If it is absent or unreadable at startup, every setting falls back to the hardcoded default defined in `ConfigManager._DEFAULTS`.
+
+### Runtime settings
+
+These are written back to `config.json` automatically when the window is closed.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `port` | `""` | Serial port used to communicate with the device (e.g. `"COM3"` or `"/dev/ttyUSB0"`). |
+| `always_on_top` | `false` | Whether the window floats above all other applications. |
+| `hold_initial_delay` | `0.4` | Seconds to wait after the first send before repeat begins. Also editable via the **Init** spinner. |
+| `hold_repeat_interval` | `0.1` | Seconds between successive sends during the repeat phase. Also editable via the **Rpt** spinner. |
+
+### Layout overrides
+
+These can be set manually in `config.json` to customise the UI geometry. They are **not** written back on exit, so edits persist across sessions. Safe minimum values are enforced in code regardless of what the file contains.
+
+| Key | Default | Minimum | Description |
+|-----|---------|---------|-------------|
+| `button_height` | `23` | `16` | Height in pixels of every command button. |
+| `min_window_width` | `200` | `200` | Minimum window width in pixels. The window will be at least as wide as its content requires after auto-fit. |
+| `min_window_height` | `400` | `400` | Minimum window height in pixels. |
