@@ -145,6 +145,9 @@ class SerialController:
         if cmd is None:
             return ser, active_port
         port = self._port_getter()
+        if not port:
+            wx.CallAfter(self._on_status, "No port configured")
+            return ser, active_port
         try:
             if ser is None or not ser.is_open or port != active_port:
                 if ser is not None and ser.is_open:
