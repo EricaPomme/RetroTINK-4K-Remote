@@ -21,6 +21,7 @@ class ConfigManager:
         "button_height": 23,
         "min_window_width": 200,
         "min_window_height": 400,
+        "custom_command": "",
     }
 
     def __init__(self, path: Path = _CONFIG_PATH):
@@ -84,6 +85,14 @@ class ConfigManager:
     @property
     def min_window_height(self) -> int:
         return max(int(self._data.get("min_window_height", self._DEFAULTS["min_window_height"])), 400)
+
+    @property
+    def custom_command(self) -> str:
+        return str(self._data.get("custom_command", self._DEFAULTS["custom_command"]))
+
+    @custom_command.setter
+    def custom_command(self, value: str):
+        self._data["custom_command"] = value
 
 
 class SerialController:
@@ -364,15 +373,18 @@ class Frame(wx.Frame):
         buttons_sizer_3.SetEmptyCellSize(wx.Size(1, 8))
         buttons_sizer_4.SetEmptyCellSize(wx.Size(1, 18))
 
-        self._custom_btn = wx.Button(
-            main_panel, label="Custom Command...", size=wx.Size(242, 23)
-        )
-        self._custom_btn.Bind(wx.EVT_BUTTON, self._on_custom)
+        self._custom_btn = wx.Button(main_panel, label="Custom Command")
+        self._custom_btn.Bind(wx.EVT_LEFT_DOWN, lambda e: self._serial.press(self._custom_cmd_ctrl.GetValue()) if self._custom_cmd_ctrl.GetValue() else None)
+        self._custom_btn.Bind(wx.EVT_LEFT_UP, lambda e: self._serial.release())
+        self._custom_cmd_ctrl = wx.TextCtrl(main_panel, value=self._config.custom_command)
+        custom_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        custom_sizer.Add(self._custom_btn, 0, wx.ALIGN_CENTRE_VERTICAL | wx.RIGHT, 4)
+        custom_sizer.Add(self._custom_cmd_ctrl, 1, wx.EXPAND)
 
         self._always_on_top = wx.CheckBox(main_panel, label="Always On Top")
         self._always_on_top.Bind(wx.EVT_CHECKBOX, self._on_always_on_top_changed)
 
-        buttons_sizer_5.Add(self._custom_btn, 0, flag=wx.ALL | wx.EXPAND)
+        buttons_sizer_5.Add(custom_sizer, 0, flag=wx.EXPAND)
         buttons_sizer_5.Add(self._always_on_top, 0, wx.TOP, border=10)
 
         panel_sizer.Add(top_sizer, 0, wx.ALL | wx.EXPAND, border=5)
@@ -409,13 +421,6 @@ class Frame(wx.Frame):
         style = (self._BASE_STYLE | wx.STAY_ON_TOP) if enabled else self._BASE_STYLE
         self.SetWindowStyle(style)
 
-    def _on_custom(self, event):
-        with wx.TextEntryDialog(self, "Custom Command:") as dialog:
-            if dialog.ShowModal() == wx.ID_OK:
-                cmd = dialog.GetValue()
-                if cmd:
-                    self._serial.press(cmd)
-
     def _on_always_on_top_changed(self, event):
         self._apply_always_on_top(self._always_on_top.GetValue())
         event.Skip()
@@ -426,6 +431,7 @@ class Frame(wx.Frame):
         self._config.always_on_top = self._always_on_top.GetValue()
         self._config.hold_initial_delay = self._hold_initial_ctrl.GetValue()
         self._config.hold_repeat_interval = self._hold_repeat_ctrl.GetValue()
+        self._config.custom_command = self._custom_cmd_ctrl.GetValue()
         self._config.save()
         event.Skip()
 
