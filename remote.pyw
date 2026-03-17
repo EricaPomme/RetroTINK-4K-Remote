@@ -101,6 +101,8 @@ class SerialController:
     On press(): sends once immediately, waits _HOLD_INITIAL_DELAY, then repeats at
     _HOLD_REPEAT_INTERVAL until release() is called. Releasing during the initial
     delay cancels repeat entirely, giving a clean single-send for quick taps.
+    Pressing a *different* key during the initial delay resets the window
+    immediately so the new key is handled without waiting out the old delay.
     """
 
     _BAUD_RATE = 115200
@@ -111,6 +113,7 @@ class SerialController:
         self._initial_delay    = initial_delay
         self._repeat_interval  = repeat_interval
         self._command: str | None = None
+        self._press_seq   = 0                   # increments on every press(), same key or not
         self._held        = threading.Event()   # set while button is physically down
         self._released    = threading.Event()   # set while button is up (inverse of _held)
         self._released.set()
@@ -123,6 +126,7 @@ class SerialController:
         """Send once immediately; begin repeat after _HOLD_INITIAL_DELAY if still held."""
         with self._lock:
             self._command = command
+            self._press_seq += 1
         self._released.clear()
         self._held.set()
 
@@ -184,11 +188,27 @@ class SerialController:
                 continue
 
             # ── Initial send ─────────────────────────────────────────────────
+            with self._lock:
+                sent_seq = self._press_seq
             ser, active_port = self._send(ser, active_port)
 
-            # Wait _HOLD_INITIAL_DELAY; _released fires early if the button
-            # is lifted before repeat would begin — no repeat in that case.
-            if self._released.wait(timeout=self._initial_delay):
+            # Wait _HOLD_INITIAL_DELAY; exit early if:
+            #   - the button is released (single tap, no repeat)
+            #   - any press() is called again (different key or same key spam)
+            _POLL = 0.02
+            delay_left = self._initial_delay
+            early_exit = False
+            while delay_left > 0:
+                if self._released.wait(timeout=min(_POLL, delay_left)):
+                    early_exit = True
+                    break
+                with self._lock:
+                    if self._press_seq != sent_seq:
+                        early_exit = True
+                        break
+                delay_left -= _POLL
+
+            if early_exit:
                 if ser is not None and ser.is_open:
                     ser.close()
                     ser = None
