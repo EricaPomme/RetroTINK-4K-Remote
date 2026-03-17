@@ -248,7 +248,8 @@ class Frame(wx.Frame):
         buttons_sizer_4 = wx.GridBagSizer(hgap=2, vgap=2)
         buttons_sizer_5 = wx.BoxSizer(wx.VERTICAL)
 
-        # Top row: port selector on the left; hold-repeat tuning on the right.
+        # Top section: row 0 — port selector spanning both columns;
+        # row 1 — Init and Rpt controls, each left-aligned in their own growable column.
         self._com_port_label = wx.StaticText(main_panel, label="Port")
         self._com_port = wx.TextCtrl(main_panel, value=self._config.port)
         com_port_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -257,24 +258,29 @@ class Frame(wx.Frame):
 
         self._hold_initial_ctrl = wx.SpinCtrlDouble(
             main_panel, min=0.0, max=5.0, inc=0.05,
-            initial=self._config.hold_initial_delay, size=wx.Size(65, -1),
+            initial=self._config.hold_initial_delay,
         )
         self._hold_initial_ctrl.SetDigits(2)
         self._hold_repeat_ctrl = wx.SpinCtrlDouble(
             main_panel, min=0.01, max=2.0, inc=0.01,
-            initial=self._config.hold_repeat_interval, size=wx.Size(65, -1),
+            initial=self._config.hold_repeat_interval,
         )
         self._hold_repeat_ctrl.SetDigits(2)
 
-        spin_sizer = wx.FlexGridSizer(rows=2, cols=2, vgap=2, hgap=4)
-        spin_sizer.Add(wx.StaticText(main_panel, label="Init:"), 0, wx.ALIGN_CENTRE_VERTICAL)
-        spin_sizer.Add(self._hold_initial_ctrl)
-        spin_sizer.Add(wx.StaticText(main_panel, label="Rpt:"), 0, wx.ALIGN_CENTRE_VERTICAL)
-        spin_sizer.Add(self._hold_repeat_ctrl)
+        init_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        init_sizer.Add(wx.StaticText(main_panel, label="Init:"), 0, wx.ALIGN_CENTRE_VERTICAL | wx.RIGHT, 4)
+        init_sizer.Add(self._hold_initial_ctrl, 1, wx.EXPAND)
 
-        top_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        top_sizer.Add(com_port_sizer, 1, wx.EXPAND)
-        top_sizer.Add(spin_sizer, 0, wx.ALIGN_CENTRE_VERTICAL | wx.LEFT, 10)
+        rpt_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        rpt_sizer.Add(wx.StaticText(main_panel, label="Repeat:"), 0, wx.ALIGN_CENTRE_VERTICAL | wx.RIGHT, 4)
+        rpt_sizer.Add(self._hold_repeat_ctrl, 1, wx.EXPAND)
+
+        top_sizer = wx.GridBagSizer(hgap=4, vgap=2)
+        top_sizer.Add(com_port_sizer, pos=(0, 0), span=(1, 2), flag=wx.EXPAND)
+        top_sizer.Add(init_sizer, pos=(1, 0), flag=wx.EXPAND)
+        top_sizer.Add(rpt_sizer, pos=(1, 1), flag=wx.EXPAND)
+        top_sizer.AddGrowableCol(0)
+        top_sizer.AddGrowableCol(1)
 
         # Button spec format: (name, label, command, row, col).
         # Widths are dynamic — see AddGrowableCol calls below.
